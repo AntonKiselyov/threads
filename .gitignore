@@ -7,7 +7,7 @@
 # Precompiled Headers
 *.gch
 *.pch
-
+/cxxtest-4.3
 # Compiled Dynamic libraries
 *.so
 *.dylib
