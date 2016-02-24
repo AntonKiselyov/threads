@@ -7,7 +7,9 @@
 
 #include <iostream>
 #include <map>
+#include <chrono>
 #include "stack.h"
+#include <time.h>
 using namespace std;
 
 void depthTreeTraversal(Node* node, map<int,int> &summap);
@@ -32,6 +34,28 @@ void test1()
     testmap.clear();
 }
 
+void insertToMap(int &n, int &s, map<int,int> &summap)
+{
+    summap.insert(pair<int,int>(n,s));
+}
+//Тест на проверку вставки в map
+void test2()
+{
+    map<int,int> testmap;
+    int key = 1;
+    int value = 3;
+    insertToMap(key,value,testmap);
+    if(testmap.find(1)->second == 3)
+    {
+        cout << "test2 success"  << endl;
+    }
+    else
+    {
+        cout << "test2 failed" << endl;
+    }
+    testmap.clear();
+}
+
 //Обход дерева в глубину
 void depthTreeTraversal(Node* node, map<int,int> &summap)
 {
@@ -45,11 +69,12 @@ void depthTreeTraversal(Node* node, map<int,int> &summap)
         if(rightnode != NIL) {
             s += rightnode->data;
         }
-        summap.insert( pair<int,int>(node->data,s) );
+        insertToMap(node->data,s,summap);
         depthTreeTraversal(leftnode,summap);
         depthTreeTraversal(rightnode,summap);
     }
 }
+
 
 //Обход дерева в ширину
 void wideTreeTraversal(Node* root, map<int,int> & summap) {
@@ -72,6 +97,17 @@ void wideTreeTraversal(Node* root, map<int,int> & summap) {
 }
 
 int main(int argc, char **argv) {
-    test1();
+    //test1();
+  //  test2();
+    for(int i = 10025; i >= 0; i--)
+        insertNode(i);
+    map<int,int> summap;
+    auto start_time = std::chrono::high_resolution_clock::now();
+    depthTreeTraversal(root,summap);
+    auto end_time = std::chrono::high_resolution_clock::now();
+
+    auto time = end_time-start_time;
+
+    cout << std::chrono::duration_cast<std::chrono::microseconds>(time).count() << endl;
     return 0;
 }
