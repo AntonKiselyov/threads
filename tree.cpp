@@ -9,10 +9,10 @@
 #include <map>
 #include <chrono>
 #include "stack.h"
-#include <time.h>
+#include <queue>
 using namespace std;
 
-void depthTreeTraversal(Node* node, map<int,int> &summap);
+void depthTreeTraversal(Node* node, map<int,int> &summap,int& count);
 void wideTreeTraversal(Node* root, map<int,int> & summap);
 
 //Тест обхода в глубину, результаты обработки теста должны соответствовать массиву значений , полученным при обходе в ширину
@@ -23,7 +23,7 @@ void test1()
     for(int i = 25; i >= 0; i--)
         insertNode(i);
     wideTreeTraversal(root,modelmap);
-    depthTreeTraversal(root,testmap);
+//    depthTreeTraversal(root,testmap);
     if(modelmap == testmap)
     {
         cout << "test1 success" << endl;
@@ -33,7 +33,7 @@ void test1()
     modelmap.clear();
     testmap.clear();
 }
-
+int *arr = new int[1000000];
 void insertToMap(int &n, int &s, map<int,int> &summap)
 {
     summap.insert(pair<int,int>(n,s));
@@ -57,7 +57,7 @@ void test2()
 }
 
 //Обход дерева в глубину
-void depthTreeTraversal(Node* node, map<int,int> &summap)
+void depthTreeTraversal(Node* node, map<int,int> &summap,int& count)
 {
     if (node != NIL) {
         Node* leftnode = node->left;
@@ -69,9 +69,12 @@ void depthTreeTraversal(Node* node, map<int,int> &summap)
         if(rightnode != NIL) {
             s += rightnode->data;
         }
-        insertToMap(node->data,s,summap);
-        depthTreeTraversal(leftnode,summap);
-        depthTreeTraversal(rightnode,summap);
+        int thiscount = count;
+        cout << node->data << ": " << node->left->data << " " << node->right->data << ": " << thiscount << endl;
+        thiscount++;
+        //insertToMap(node->data,s,summap);
+        depthTreeTraversal(leftnode,summap,thiscount);
+        depthTreeTraversal(rightnode,summap,thiscount);
     }
 }
 
@@ -91,7 +94,8 @@ void wideTreeTraversal(Node* root, map<int,int> & summap) {
             push(q, tmp->right);
             s += tmp->right->data;
         }
-        summap.insert(pair<int,int>(tmp->data, s));
+        //arr[tmp->data,s];
+       // summap.insert(pair<int,int>(tmp->data, s));
     }
     freeStack(&q);
 }
@@ -99,11 +103,13 @@ void wideTreeTraversal(Node* root, map<int,int> & summap) {
 int main(int argc, char **argv) {
     //test1();
   //  test2();
-    for(int i = 10025; i >= 0; i--)
+    for(int i = 100000; i >= 0; i--)
         insertNode(i);
     map<int,int> summap;
+    int count  = 0;
+  //  depthTreeTraversal(root,summap,count);
     auto start_time = std::chrono::high_resolution_clock::now();
-    depthTreeTraversal(root,summap);
+    wideTreeTraversal(root,summap);
     auto end_time = std::chrono::high_resolution_clock::now();
 
     auto time = end_time-start_time;
