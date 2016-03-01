@@ -26,8 +26,6 @@ typedef struct Node_ {
 } Node;
 
 
-void depthTreeTraversal(Node* node, map<int,int> &summap);
-void wideTreeTraversal(Node* root, map<int,int> & summap);
 #define NIL &sentinel           /* all leafs are sentinels */
 Node sentinel = { NIL, NIL, 0, BLACK, 0};
 

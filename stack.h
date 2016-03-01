@@ -6,7 +6,7 @@
 #define THREADS_STACK_H
 #include "tree.h"
 
-#define STACK_INIT_SIZE 100
+#define STACK_INIT_SIZE 25000000
 
 typedef struct Stack {
     size_t size;
