@@ -3,7 +3,7 @@ project(threads)
 
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
 
-set(SOURCE_FILES tree.cpp tree.h stack.h testsuit.h)
+set(SOURCE_FILES tree.h stack.h testsuit.h MyNode.h NewNode.h avl.h treethreads.cpp)
 add_executable(threads ${SOURCE_FILES})
 
 
