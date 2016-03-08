@@ -5,8 +5,13 @@
 #ifndef THREADS_STACK_H
 #define THREADS_STACK_H
 #include "avl.h"
+#include <map>
 
 #define STACK_INIT_SIZE 25000000
+
+void depthTreeTraversal(nodeptr, map<int,int>&);
+void wideTreeTraversal(nodeptr, map<int,int>&);
+void insertToMap(int &, int &, map<int,int> &);
 
 typedef struct Stack {
     size_t size;
