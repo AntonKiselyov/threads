@@ -95,7 +95,7 @@ void wideTreeTraversal(Node* root, map<int,int> & summap) {
             s += tmp->right->data;
         }
         //arr[tmp->data,s];
-       // summap.insert(pair<int,int>(tmp->data, s));
+        summap.insert(pair<int,int>(tmp->data, s));
     }
     freeStack(&q);
 }
@@ -103,7 +103,7 @@ void wideTreeTraversal(Node* root, map<int,int> & summap) {
 int main(int argc, char **argv) {
     //test1();
   //  test2();
-    for(int i = 100000; i >= 0; i--)
+    for(int i = 1000000; i >= 0; i--)
         insertNode(i);
     map<int,int> summap;
     int count  = 0;
@@ -115,5 +115,8 @@ int main(int argc, char **argv) {
     auto time = end_time-start_time;
 
     cout << std::chrono::duration_cast<std::chrono::microseconds>(time).count() << endl;
+
+    cout << summap.size() << endl;
+
     return 0;
 }

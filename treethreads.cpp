@@ -6,6 +6,7 @@
 #include <stdio.h>
 #include <iostream>
 #include <chrono>
+#include <ctime>
 #include <unistd.h>
 #include "stack.h"
 using namespace std;
@@ -42,20 +43,21 @@ void* wideTreeTraversalWithThreads(void* arg) {
             push(q, tmp->right);
             s += tmp->right->data;
         }
-        //pthread_mutex_lock(&mutex);
-       // insertToMap(tmp->data,s);
+      //  pthread_mutex_lock(&mutex);
+        insertToMap(tmp->data,s);
         //arr[tmp->data] = s;
-        ///pthread_mutex_unlock(&mutex);
+      //  pthread_mutex_unlock(&mutex);
     }
     freeStack(&q);
-    pthread_mutex_lock(&mutex);
-    countEndThreads++;
-    pthread_mutex_unlock(&mutex);
-    pthread_exit(NULL);
+   // pthread_mutex_lock(&mutex);
+   // countEndThreads++;
+   // pthread_mutex_unlock(&mutex);
+   // pthread_exit(NULL);
 }
 
 
 int main() {
+    std::srand(std::time(NULL));
     q0 = createStack();
     q1 = createStack();
     q2 = createStack();
@@ -73,9 +75,9 @@ int main() {
     countWorkThreads = 0;
     countEndThreads = 0;
 
-    for (int i = 100000; i >= 0; i--)
-        insertNode(i);
-    for(int i = 0; i < 8; i++)
+    for (int i = 1000000; i >= 0; i--)
+        insertNode(rand()%100);
+/*    for(int i = 0; i < 8; i++)
         threadid[i] = i;
     auto start_time = std::chrono::high_resolution_clock::now();
     for (int i = 0; i < 4; i++)
@@ -108,7 +110,7 @@ int main() {
         pthread_detach(thread[i]);
     }
     while(countEndThreads < countWorkThreads)
-        usleep(10);
+        usleep(10);*/
    /* for(int i = 0; i < 4; i++)
     {
         if ((status_addr[i] = pthread_join(thread[i], NULL)) != 0)
@@ -116,7 +118,7 @@ int main() {
             printf("Can't join thread!\n");
         }
     }*/
-
+/*
     auto end_time = std::chrono::high_resolution_clock::now();
 
     auto time = end_time-start_time;
@@ -124,9 +126,61 @@ int main() {
     cout << endl << std::chrono::duration_cast<std::chrono::microseconds>(time).count() << endl;
 
     printf("%d\n",summap->size());
-    /*for(int i = 0; i< 1000000; i++)
-        cout << arr[i] << " ";*/
-    pthread_mutex_destroy(&mutex);
+    pthread_mutex_destroy(&mutex);*/
+
+    auto full_time_start = std::chrono::high_resolution_clock::now();
+
+    auto start_time = std::chrono::high_resolution_clock::now();
+    wideTreeTraversalWithThreads(root->left->left);
+    auto end_time = std::chrono::high_resolution_clock::now();
+
+    auto time = end_time-start_time;
+
+    cout << std::chrono::duration_cast<std::chrono::microseconds>(time).count() << endl;
+
+    cout << summap->size() << endl;
+    cout << endl;
+    start_time = std::chrono::high_resolution_clock::now();
+    wideTreeTraversalWithThreads(root->left->right);
+    end_time = std::chrono::high_resolution_clock::now();
+
+    time = end_time-start_time;
+
+    cout << std::chrono::duration_cast<std::chrono::microseconds>(time).count() << endl;
+
+    cout << summap->size() << endl;
+
+    cout << endl;
+
+    start_time = std::chrono::high_resolution_clock::now();
+    wideTreeTraversalWithThreads(root->right->left);
+    end_time = std::chrono::high_resolution_clock::now();
+
+    time = end_time-start_time;
+
+    cout << std::chrono::duration_cast<std::chrono::microseconds>(time).count() << endl;
+
+    cout << summap->size() << endl;
+
+    cout << endl;
+
+    start_time = std::chrono::high_resolution_clock::now();
+    wideTreeTraversalWithThreads(root->right->right);
+    end_time = std::chrono::high_resolution_clock::now();
+
+    time = end_time-start_time;
+
+    cout << std::chrono::duration_cast<std::chrono::microseconds>(time).count() << endl;
+
+    cout << summap->size() << endl;
+
+    cout << endl;
+
+    auto full_time_end = std::chrono::high_resolution_clock::now();
+
+    auto full_time = full_time_end- full_time_start;
+
+    cout << "full time: " << std::chrono::duration_cast<std::chrono::microseconds>(full_time).count() << endl;
     delete(summap);
     return 0;
 }
