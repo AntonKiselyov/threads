@@ -1,29 +1,27 @@
+﻿//
+// Created by Admin on 08.03.2016.
 //
-// Created by Admin on 23.02.2016.
-//
-
-
-/* red-black tree */
 
 #include <iostream>
 #include <map>
 #include <chrono>
 #include "stack.h"
-#include <queue>
+
 using namespace std;
 
-void depthTreeTraversal(Node* node, map<int,int> &summap,int& count);
-void wideTreeTraversal(Node* root, map<int,int> & summap);
-
-//Тест обхода в глубину, результаты обработки теста должны соответствовать массиву значений , полученным при обходе в ширину
-void test1()
+//Тест обхода в глубину, результаты обработки теста должны соответствовать массиву значений , полученным при обходе в ширину 
+void test1() 
 {
+    nodeptr root = NULL;
+    nodeptr parent = NULL;
+    bstree tree;
+    for(int i = 0; i < 100000; i++) {
+        tree.insert(i, root,parent);
+    }
     map<int,int> modelmap;
     map<int,int> testmap;
-    for(int i = 25; i >= 0; i--)
-        insertNode(i);
     wideTreeTraversal(root,modelmap);
-//    depthTreeTraversal(root,testmap);
+    depthTreeTraversal(root,testmap);
     if(modelmap == testmap)
     {
         cout << "test1 success" << endl;
@@ -33,21 +31,23 @@ void test1()
     modelmap.clear();
     testmap.clear();
 }
-int *arr = new int[1000000];
-void insertToMap(int &n, int &s, map<int,int> &summap)
-{
+
+//Добавление в карту
+void insertToMap(int &n, int &s, map<int,int> &summap) 
+{ 
     summap.insert(pair<int,int>(n,s));
 }
-//Тест на проверку вставки в map
-void test2()
-{
+
+//Тест на проверку вставки в map 
+void test2() 
+{ 
     map<int,int> testmap;
     int key = 1;
     int value = 3;
     insertToMap(key,value,testmap);
     if(testmap.find(1)->second == 3)
     {
-        cout << "test2 success"  << endl;
+        cout << "test2 success" << endl;
     }
     else
     {
@@ -56,64 +56,90 @@ void test2()
     testmap.clear();
 }
 
+
+nodeptr mainroot = NULL;
 //Обход дерева в глубину
-void depthTreeTraversal(Node* node, map<int,int> &summap,int& count)
+void depthTreeTraversal(nodeptr root ,map<int,int> &summap)
 {
-    if (node != NIL) {
-        Node* leftnode = node->left;
-        Node* rightnode = node->right;
+    if(mainroot == NULL)
+        mainroot = root;
+    if (root != NULL) {
+        nodeptr leftnode = root->left;
+        nodeptr rightnode = root->right;
+        //cout << root->element;
+        //if(root->parent != NULL)
+         //   cout << ": parent = "  << root->parent->element;
+        //cout << " child: ";
         int s = 0;
-        if(leftnode != NIL) {
-            s += leftnode->data;
+        if(leftnode != NULL) {
+            //cout << leftnode->element << " ";
+            s += leftnode->element;
+
         }
-        if(rightnode != NIL) {
-            s += rightnode->data;
+        if(rightnode != NULL) {
+            //cout << rightnode->element << " ";
+            s += rightnode->element;
         }
-        int thiscount = count;
-        cout << node->data << ": " << node->left->data << " " << node->right->data << ": " << thiscount << endl;
-        thiscount++;
-        //insertToMap(node->data,s,summap);
-        depthTreeTraversal(leftnode,summap,thiscount);
-        depthTreeTraversal(rightnode,summap,thiscount);
+        //cout << root->height;
+        //cout << endl;
+        insertToMap(root->element,s,summap);
+        while(root != mainroot)
+        {
+            root = root->parent;
+            int v = summap.at(root->element);
+            summap.erase(root->element);
+            summap.insert(pair<int,int>(root->element,v + s));
+        }
+        depthTreeTraversal(leftnode,summap);
+        depthTreeTraversal(rightnode,summap);
     }
 }
-
-
 //Обход дерева в ширину
-void wideTreeTraversal(Node* root, map<int,int> & summap) {
+void wideTreeTraversal(nodeptr root, map<int,int> & summap)
+{
     Stack *q = createStack();
     push(q, root);
     while (q->size != 0) {
-        Node *tmp = (Node*) pop(q);
+        nodeptr tmp = (nodeptr) pop(q);
         int s = 0;
-        if (tmp->left != NIL) {
+        if (tmp->left != NULL) {
             push(q, tmp->left);
-            s += tmp->left->data;
+            s += tmp->left->element;
         }
-        if (tmp->right != NIL) {
+        if (tmp->right != NULL) {
             push(q, tmp->right);
-            s += tmp->right->data;
+            s += tmp->right->element;
         }
-        //arr[tmp->data,s];
-        summap.insert(pair<int,int>(tmp->data, s));
+        summap.insert(pair<int,int>(tmp->element, s));
+        while(tmp != root)
+        {
+            tmp = tmp->parent;
+            int v = summap.at(tmp->element);
+            summap.erase(tmp->element);
+            summap.insert(pair<int,int>(tmp->element,v + s));
+        }
+
     }
     freeStack(&q);
 }
-
-int main(int argc, char **argv) {
-    //test1();
-  //  test2();
-    for(int i = 1000000; i >= 0; i--)
-        insertNode(i);
+int main()
+{
+    test1();
+    test2();
     map<int,int> summap;
-    int count  = 0;
-  //  depthTreeTraversal(root,summap,count);
+    nodeptr root = NULL;
+    nodeptr parent = NULL;
+    bstree tree;
+    for(int i = 0; i < 100000; i++) {
+        tree.insert(i, root,parent);
+    }
+    cout<<"height: "<<tree.bsheight(root)<<endl;
     auto start_time = std::chrono::high_resolution_clock::now();
     wideTreeTraversal(root,summap);
     auto end_time = std::chrono::high_resolution_clock::now();
-
     auto time = end_time-start_time;
-
+    printf("%d\n",summap.size());
+    cout << endl;
     cout << std::chrono::duration_cast<std::chrono::microseconds>(time).count() << endl;
 
     cout << summap.size() << endl;
