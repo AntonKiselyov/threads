@@ -3,12 +3,12 @@ project(threads)
 
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
 
-set(SOURCE_FILES stack.h testsuit.h avl.h treethreads.cpp)
+set(SOURCE_FILES stack.h MyTests.h avl.h treethreads.cpp)
 add_executable(threads ${SOURCE_FILES})
 
 
 
-SET(CXXTEST_EXECUTABLE ${PROJECT_SOURCE_DIR}/3rdparty/cxxtest/cxxtestgen.pl)
+SET(CXXTEST_EXECUTABLE ${PROJECT_SOURCE_DIR}/cxxtest-4.3/cxxtest/cxxtestgen.pl)
 
 MACRO(unit_test NAME CXX_FILE FILES)
     SET(PATH_FILES "")

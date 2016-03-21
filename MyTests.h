@@ -7,7 +7,8 @@
 
 #include <cxxtest-4.3/cxxtest/TestSuite.h>
 #include "stack.h"
-class Suit :: CxxTest::TestSuit
+
+class MyTests :: CxxTest::TestSuite
 {
 public:
 
@@ -24,14 +25,15 @@ public:
         map<int,int> testmap;
         wideTreeTraversal(root,modelmap);
         depthTreeTraversal(root,testmap);
-        if(modelmap == testmap)
+        TS_ASSERT_EQUALS(modelmap,testmap);
+        /*if(modelmap == testmap)
         {
             cout << "test1 success" << endl;
         } else {
             cout << "test1 failed" << endl;
         }
         modelmap.clear();
-        testmap.clear();
+        testmap.clear();*/
     }
 
 //Тест на проверку вставки в map
