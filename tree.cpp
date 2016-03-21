@@ -118,6 +118,7 @@ void wideTreeTraversal(nodeptr root, map<int,int> & summap)
             summap.erase(tmp->element);
             summap.insert(pair<int,int>(tmp->element,v + s));
         }
+
     }
     freeStack(&q);
 }
@@ -140,5 +141,8 @@ int main()
     printf("%d\n",summap.size());
     cout << endl;
     cout << std::chrono::duration_cast<std::chrono::microseconds>(time).count() << endl;
+
+    cout << summap.size() << endl;
+
     return 0;
 }

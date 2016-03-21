@@ -319,7 +319,7 @@ void* wideTreeTraversalWithThreads(void* arg) {
    // auto start_time = std::chrono::high_resolution_clock::now();
 
     Stack *q = createStack();
-    map<int,int> threadmap;
+    //map<int,int> threadmap;
     push(q,( (arguments*)arg )->root);
     while (q->size != 0) {
         nodeptr tmp = (nodeptr) pop(q);
@@ -388,12 +388,12 @@ int main() {
     }
     cout << "height = " << bstree.bsheight(bsroot) << endl;
 
-
-    //Время вычисления для всего дерева
-    auto start_time = std::chrono::high_resolution_clock::now();
     arguments* arg = new arguments;
     arg->id = 0;
     arg->root = bsroot;
+
+    //Время вычисления для всего дерева
+    auto start_time = std::chrono::high_resolution_clock::now();
     wideTreeTraversalWithThreads(arg);
     auto end_time = std::chrono::high_resolution_clock::now();
     auto time = end_time-start_time;
@@ -406,7 +406,7 @@ int main() {
     test4threads(bsroot);
     test8threads(bsroot);
     test2threads(bsroot);
-
+    summap->clear();
     //Время для параллельной обработки 4 потоков
     countEndThreads = 0;
     countWorkThreads = 0;
@@ -454,15 +454,22 @@ int main() {
         usleep(1);
 
     int rootsum = bsroot->left->element + bsroot->right->element
+                  + bsroot->left->left->element
+                  + bsroot->left->right->element
+                  + bsroot->right->left->element
+                  + bsroot->right->right->element
                   + pthread_map[0].at(bsroot->left->left->element)
-                    + pthread_map[1].at(bsroot->left->right->element)
-                      + pthread_map[2].at(bsroot->right->left->element)
-                        + pthread_map[3].at(bsroot->right->right->element);
+                  + pthread_map[1].at(bsroot->left->right->element)
+                  + pthread_map[2].at(bsroot->right->left->element)
+                  + pthread_map[3].at(bsroot->right->right->element);
     summap->insert(pair<int,int> (bsroot->element,rootsum));
-    summap->insert(pair<int,int> (bsroot->left->element,pthread_map[0].at(bsroot->left->left->element)
+    summap->insert(pair<int,int> (bsroot->left->element,bsroot->left->left->element + bsroot->left->right->element + pthread_map[0].at(bsroot->left->left->element)
                                                         + pthread_map[1].at(bsroot->left->right->element)));
-    summap->insert(pair<int,int> (bsroot->right->element,pthread_map[2].at(bsroot->right->left->element)
+    summap->insert(pair<int,int> (bsroot->right->element,bsroot->right->left->element + bsroot->right->right->element + pthread_map[2].at(bsroot->right->left->element)
                                                          + pthread_map[3].at(bsroot->right->right->element)));
+
+
+
     end_time = std::chrono::high_resolution_clock::now();
 
     time = end_time-start_time;
@@ -473,6 +480,7 @@ int main() {
     countEndThreads = 0;
     countWorkThreads = 0;
 
+    summap->clear();
     for(int i = 0; i < 8; i++)
         pthread_map[i].clear();
     start_time = std::chrono::high_resolution_clock::now();
@@ -550,15 +558,63 @@ int main() {
     rootsum = bsroot->left->element + bsroot->right->element
                   + bsroot->left->left->element + bsroot->left->right->element
                   + bsroot->right->left->element + bsroot->right->right->element
+                  + bsroot->left->left->left->element
+                  + bsroot->left->left->right->element
+                  + bsroot->left->right->left->element
+                  + bsroot->left->right->right->element
+                  + bsroot->right->left->left->element
+                  + bsroot->right->left->right->element
+                  + bsroot->right->right->left->element
+                  + bsroot->right->right->right->element
                   + pthread_map[0].at(bsroot->left->left->left->element)
-                    + pthread_map[1].at(bsroot->left->left->right->element)
-                      + pthread_map[2].at(bsroot->left->right->left->element)
-                        + pthread_map[3].at(bsroot->left->right->right->element)
-                          + pthread_map[4].at(bsroot->right->left->left->element)
-                            + pthread_map[5].at(bsroot->right->left->right->element)
-                              + pthread_map[6].at(bsroot->right->right->left->element)
-                                + pthread_map[7].at(bsroot->right->right->right->element);
+                  + pthread_map[1].at(bsroot->left->left->right->element)
+                  + pthread_map[2].at(bsroot->left->right->left->element)
+                  + pthread_map[3].at(bsroot->left->right->right->element)
+                  + pthread_map[4].at(bsroot->right->left->left->element)
+                  + pthread_map[5].at(bsroot->right->left->right->element)
+                  + pthread_map[6].at(bsroot->right->right->left->element)
+                  + pthread_map[7].at(bsroot->right->right->right->element);
     summap->insert(pair<int,int> (bsroot->element,rootsum));
+    summap->insert(pair<int,int> (bsroot->left->element,bsroot->left->left->element
+                                                        + bsroot->left->right->element
+                                                        + bsroot->left->left->left->element
+                                                        + bsroot->left->left->right->element
+                                                        + pthread_map[0].at(bsroot->left->left->left->element)
+                                                        + pthread_map[1].at(bsroot->left->left->right->element)
+                                                        + bsroot->left->right->left->element
+                                                        + bsroot->left->right->right->element
+                                                        + pthread_map[2].at(bsroot->left->right->left->element)
+                                                        + pthread_map[3].at(bsroot->left->right->right->element)));
+    summap->insert(pair<int,int> (bsroot->right->element,bsroot->right->left->element
+                                                         + bsroot->right->right->element
+                                                         + bsroot->right->left->left->element
+                                                         + bsroot->right->left->right->element
+                                                         + pthread_map[4].at(bsroot->right->left->left->element)
+                                                         + pthread_map[5].at(bsroot->right->left->right->element)
+                                                         + bsroot->right->right->left->element
+                                                         + bsroot->right->right->right->element
+                                                         + pthread_map[6].at(bsroot->right->right->left->element)
+                                                         + pthread_map[7].at(bsroot->right->right->right->element)));
+    summap->insert(pair<int,int> (bsroot->left->left->element,
+                                  bsroot->left->left->left->element
+                                  + bsroot->left->left->right->element
+                                  + pthread_map[0].at(bsroot->left->left->left->element)
+                                  + pthread_map[1].at(bsroot->left->left->right->element)));
+    summap->insert(pair<int,int> (bsroot->left->right->element,
+                                  bsroot->left->right->left->element
+                                  + bsroot->left->right->right->element
+                                  + pthread_map[2].at(bsroot->left->right->left->element)
+                                  + pthread_map[3].at(bsroot->left->right->right->element)));
+    summap->insert(pair<int,int> (bsroot->right->left->element,
+                                  bsroot->right->left->left->element
+                                  + bsroot->right->left->right->element
+                                  + pthread_map[4].at(bsroot->right->left->left->element)
+                                  + pthread_map[5].at(bsroot->right->left->right->element)));
+    summap->insert(pair<int,int> (bsroot->right->right->element,
+                                  bsroot->right->right->left->element
+                                  + bsroot->right->right->right->element
+                                  + pthread_map[6].at(bsroot->right->right->left->element)
+                                  + pthread_map[7].at(bsroot->right->right->right->element)));
 
     end_time = std::chrono::high_resolution_clock::now();
 
@@ -572,6 +628,7 @@ int main() {
     for(int i = 0; i < 8; i++)
         pthread_map[i].clear();
 
+    summap->clear();
     start_time = std::chrono::high_resolution_clock::now();
     for (int i = 0; i < 2; i++) {
         if (i == 0) {
@@ -595,9 +652,8 @@ int main() {
     }
     while(countEndThreads < countWorkThreads)
         usleep(1);
-
-    rootsum = pthread_map[0].at(bsroot->left->element)
-                      + pthread_map[1].at(bsroot->right->element);
+    rootsum = bsroot->left->element + bsroot->right->element + pthread_map[0].at(bsroot->left->element)
+                  + pthread_map[1].at(bsroot->right->element);
     summap->insert(pair<int,int> (bsroot->element,rootsum));
     end_time = std::chrono::high_resolution_clock::now();
 
