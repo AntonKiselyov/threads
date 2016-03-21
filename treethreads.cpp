@@ -309,6 +309,7 @@ void test2threads(nodeptr bsroot)
 
 void insertToMap(int &n, int &s)
 {
+    
     summap->insert(pair<int,int>(n,s));
 }
 //Обход дерева в ширину
