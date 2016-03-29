@@ -5,9 +5,8 @@
 #include <iostream>
 #include <map>
 #include <chrono>
-#include <omp.h>
-#include "stack.h"
 #include <math.h>
+#include "stack.h"
 
 using namespace std;
 
@@ -18,67 +17,54 @@ void insertToMap(int &n, int &s)
 {
     summap->insert(pair<int,int>(n,s));
 }
-//Обход дерева в ширину, TASK
-void wideTreeTraversalWithThreads(int &id) {
-    Stack *q = createStack();
-    Stack *parents = createStack();
-    push(q, nodes[id]);
-    push(parents, nodes[id]);
-    while (q->size != 0) {
-        nodeptr tmp;
-        if( (tmp = (nodeptr) pop(q)) != NULL )
-        {
-            if( (tmp->parent != NULL ) && (tmp->parent != parents->data[parents->size-1]) && (pthread_map[id].count(parents->data[parents->size-1]->element) != 0 ) ){
-                nodeptr eraseptr;
-                do {
-                    #pragma omp critical
-                    {
-                        insertToMap(parents->data[parents->size - 1]->element, pthread_map[id].at(parents->data[parents->size - 1]->element));
-                    }
-                    eraseptr = pop(parents);
-                }while(tmp->parent != eraseptr->parent);
-            }
-        }
 
-        int s = 0;
-        if (tmp->left != NULL) {
-            push(q, tmp->left);
-            s += tmp->left->element;
-            if( (tmp->left->left != NULL) || (tmp->left->right) != NULL)
-                push(parents,tmp->left);
-        }
-        if (tmp->right != NULL) {
-            push(q, tmp->right);
-            s += tmp->right->element;
-            if( (tmp->right->left != NULL) || (tmp->right->right) != NULL)
-                push(parents,tmp->right);
-        }
-        pthread_map[id].insert(pair<int,int>(tmp->element, s));
-        if(s == 0) {
+//Обход дерева в ширину
+void* wideTreeTraversalWithThreads(int &id) {
+    Stack *q = createStack();
+    push(q,nodes[id]);
+    int reversesum = 0;
+    while (q->size != 0) {
+        nodeptr tmp = q->data[q->size - 1];
+        if (((tmp->left != NULL) && (pthread_map[id].count(tmp->left->element) != 0)) ||
+            ((tmp->right != NULL) && (pthread_map[id].count(tmp->right->element) != 0))) {
+            int value = pthread_map[id].at(tmp->element);
+            pthread_map[id].erase(tmp->element);
+            pthread_map[id].insert(pair<int, int>(tmp->element, value + reversesum));
             #pragma omp critical
             {
-                insertToMap(tmp->element,s);
+                insertToMap(tmp->element,pthread_map[id].at(tmp->element));
+            }
+            reversesum += value;
+            pop(q);
+
+        } else {
+            if (pthread_map[id].count(q->data[q->size - 2]->element) != 0) {
+                int value = pthread_map[id].at(q->data[q->size - 2]->element);
+                pthread_map[id].erase(q->data[q->size - 2]->element);
+                pthread_map[id].insert(pair<int, int>(q->data[q->size - 2]->element, value + reversesum));
+            }
+            reversesum = 0;
+            int s = 0;
+            if (tmp->left != NULL) {
+                push(q, tmp->left);
+                s += tmp->left->element;
+            }
+            if (tmp->right != NULL) {
+                push(q, tmp->right);
+                s += tmp->right->element;
+            }
+            pthread_map[id].insert(pair<int, int>(tmp->element, s));
+            if (s == 0) {
+            #pragma omp critical
+                {
+                    insertToMap(tmp->element, s);
+                }
+                pop(q);
             }
         }
-        while(tmp != nodes[id])
-        {
-            tmp = tmp->parent;
-            int v = pthread_map[id].at(tmp->element);
-            pthread_map[id].erase(tmp->element);
-            pthread_map[id].insert(pair<int,int>(tmp->element,v + s));
-        }
-    }
-    while(parents->size != 0) {
-        #pragma omp critical
-        {
-            insertToMap(parents->data[parents->size - 1]->element,pthread_map[id].at(parents->data[parents->size - 1]->element));
-        }
-        pop(parents);
     }
     freeStack(&q);
-    freeStack(&parents);
 }
-
 //Автоматизация распредления вершин
 void auto_config(nodeptr bsroot, int level,int num, Stack* nodestack)
 {

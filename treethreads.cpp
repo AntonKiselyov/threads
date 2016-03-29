@@ -310,12 +310,13 @@ void test2threads(nodeptr bsroot)
 
 
 
-void insertToMap(int &n, int &s)
+void insertToMap(int &n, int s)
 {
 
     summap->insert(pair<int,int>(n,s));
     
 }
+/*
 //Обход дерева в ширину
 void* wideTreeTraversalWithThreads(void* arg) {
     Stack *q = createStack();
@@ -333,10 +334,10 @@ void* wideTreeTraversalWithThreads(void* arg) {
                     insertToMap(parents->data[parents->size - 1]->element,
                                 pthread_map[((arguments *) arg)->id].at(parents->data[parents->size - 1]->element));
                     pthread_mutex_unlock(&mutex);
-                     /*EnterCriticalSection(&CriticalSection);
-                     insertToMap(parents->data[parents->size - 1]->element,
-                                 pthread_map[((arguments *) arg)->id].at(parents->data[parents->size - 1]->element));
-                     LeaveCriticalSection(&CriticalSection);*/
+/*EnterCriticalSection(&CriticalSection);
+insertToMap(parents->data[parents->size - 1]->element,
+            pthread_map[((arguments *) arg)->id].at(parents->data[parents->size - 1]->element));
+LeaveCriticalSection(&CriticalSection);*//*
                      eraseptr = pop(parents);
                 }while(tmp->parent != eraseptr->parent);
             }
@@ -359,10 +360,10 @@ void* wideTreeTraversalWithThreads(void* arg) {
         if(s == 0) {
             pthread_mutex_lock(&mutex);
             insertToMap(tmp->element,s);
-            pthread_mutex_unlock(&mutex);
+            pthread_mutex_unlock(&mutex);*/
            /* EnterCriticalSection(&CriticalSection);
             insertToMap(tmp->element,s);
-            LeaveCriticalSection(&CriticalSection);*/
+            LeaveCriticalSection(&CriticalSection);*//*
         }
         while(tmp != ( (arguments*)arg )->root)
         {
@@ -380,11 +381,61 @@ void* wideTreeTraversalWithThreads(void* arg) {
         /*EnterCriticalSection(&CriticalSection);
         insertToMap(parents->data[parents->size - 1]->element,
                     pthread_map[((arguments *) arg)->id].at(parents->data[parents->size - 1]->element));
-        LeaveCriticalSection(&CriticalSection);*/
+        LeaveCriticalSection(&CriticalSection);*//*
         pop(parents);
     }
     freeStack(&q);
     freeStack(&parents);
+    pthread_mutex_lock(&mutex);
+    countEndThreads++;
+    pthread_mutex_unlock(&mutex);
+}*/
+
+//Обход дерева в ширину
+void* wideTreeTraversalWithThreads(void* arg) {
+    Stack *q = createStack();
+    push(q,( (arguments*)arg )->root);
+    int reversesum = 0;
+    while (q->size != 0) {
+        nodeptr tmp = q->data[q->size - 1];
+        if (((tmp->left != NULL) && (pthread_map[((arguments *) arg)->id].count(tmp->left->element) != 0)) ||
+            ((tmp->right != NULL) && (pthread_map[((arguments *) arg)->id].count(tmp->right->element) != 0))) {
+            int value = pthread_map[((arguments *) arg)->id].at(tmp->element);
+            pthread_map[((arguments *) arg)->id].erase(tmp->element);
+            pthread_map[((arguments *) arg)->id].insert(pair<int, int>(tmp->element, value + reversesum));
+            pthread_mutex_lock(&mutex);
+            insertToMap(tmp->element,pthread_map[((arguments *) arg)->id].at(tmp->element));
+            pthread_mutex_unlock(&mutex);
+            reversesum += value;
+            pop(q);
+
+        } else {
+            if (pthread_map[((arguments *) arg)->id].count(q->data[q->size - 2]->element) != 0) {
+                int value = pthread_map[((arguments *) arg)->id].at(q->data[q->size - 2]->element);
+                pthread_map[((arguments *) arg)->id].erase(q->data[q->size - 2]->element);
+                pthread_map[((arguments *) arg)->id].insert(
+                        pair<int, int>(q->data[q->size - 2]->element, value + reversesum));
+            }
+            reversesum = 0;
+            int s = 0;
+            if (tmp->left != NULL) {
+                push(q, tmp->left);
+                s += tmp->left->element;
+            }
+            if (tmp->right != NULL) {
+                push(q, tmp->right);
+                s += tmp->right->element;
+            }
+            pthread_map[((arguments *) arg)->id].insert(pair<int, int>(tmp->element, s));
+            if (s == 0) {
+                pthread_mutex_lock(&mutex);
+                insertToMap(tmp->element, s);
+                pthread_mutex_unlock(&mutex);
+                pop(q);
+            }
+        }
+    }
+    freeStack(&q);
     pthread_mutex_lock(&mutex);
     countEndThreads++;
     pthread_mutex_unlock(&mutex);
