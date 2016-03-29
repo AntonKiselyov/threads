@@ -6,14 +6,17 @@
 #include <stdio.h>
 #include <iostream>
 #include <chrono>
+#include <windows.h>
 #include <sys/time.h>
 #include <unistd.h>
 #include <map>
+#include <math.h>
 #include "avl.h"
 #include "stack.h"
 using namespace std;
 
 pthread_mutex_t mutex;
+CRITICAL_SECTION CriticalSection;
 map<int,int>* summap;
 map<int,int>* pthread_map = new map<int,int>[8];
 
@@ -315,58 +318,103 @@ void insertToMap(int &n, int &s)
 }
 //Обход дерева в ширину
 void* wideTreeTraversalWithThreads(void* arg) {
-    int count = 0;
-   // auto start_time = std::chrono::high_resolution_clock::now();
-
     Stack *q = createStack();
-    //map<int,int> threadmap;
+    Stack *parents = createStack();
     push(q,( (arguments*)arg )->root);
+    push(parents,( (arguments*)arg )->root);
     while (q->size != 0) {
-        nodeptr tmp = (nodeptr) pop(q);
+        nodeptr tmp;
+        if( (tmp = (nodeptr) pop(q)) != NULL )
+        {
+            if( (tmp->parent != NULL ) && (tmp->parent != parents->data[parents->size-1]) && (pthread_map[( (arguments*)arg )->id].count(parents->data[parents->size-1]->element) != 0 ) ){
+                nodeptr eraseptr;
+                 do {
+                    pthread_mutex_lock(&mutex);
+                    insertToMap(parents->data[parents->size - 1]->element,
+                                pthread_map[((arguments *) arg)->id].at(parents->data[parents->size - 1]->element));
+                    pthread_mutex_unlock(&mutex);
+                     /*EnterCriticalSection(&CriticalSection);
+                     insertToMap(parents->data[parents->size - 1]->element,
+                                 pthread_map[((arguments *) arg)->id].at(parents->data[parents->size - 1]->element));
+                     LeaveCriticalSection(&CriticalSection);*/
+                     eraseptr = pop(parents);
+                }while(tmp->parent != eraseptr->parent);
+            }
+        }
+
         int s = 0;
         if (tmp->left != NULL) {
             push(q, tmp->left);
             s += tmp->left->element;
+            if( (tmp->left->left != NULL) || (tmp->left->right) != NULL)
+                push(parents,tmp->left);
         }
         if (tmp->right != NULL) {
             push(q, tmp->right);
             s += tmp->right->element;
+            if( (tmp->right->left != NULL) || (tmp->right->right) != NULL)
+                push(parents,tmp->right);
         }
-        //pthread_mutex_lock(&mutex);
-        //summap->insert(pair<int,int>(tmp->element, s));
         pthread_map[( (arguments*)arg )->id].insert(pair<int,int>(tmp->element, s));
-        //threadmap.insert(pair<int,int>(tmp->element, s));
+        if(s == 0) {
+            pthread_mutex_lock(&mutex);
+            insertToMap(tmp->element,s);
+            pthread_mutex_unlock(&mutex);
+           /* EnterCriticalSection(&CriticalSection);
+            insertToMap(tmp->element,s);
+            LeaveCriticalSection(&CriticalSection);*/
+        }
         while(tmp != ( (arguments*)arg )->root)
         {
             tmp = tmp->parent;
-            /* int v = summap->at(tmp->element);
-             summap->erase(tmp->element);
-             summap->insert(pair<int,int>(tmp->element,v + s));*/
             int v = pthread_map[( (arguments*)arg )->id].at(tmp->element);
             pthread_map[( (arguments*)arg )->id].erase(tmp->element);
             pthread_map[( (arguments*)arg )->id].insert(pair<int,int>(tmp->element,v + s));
-            /*int v = threadmap.at(tmp->element);
-            threadmap.erase(tmp->element);
-            threadmap.insert(pair<int,int>(tmp->element,v + s));*/
         }
-       // pthread_mutex_unlock(&mutex);
-        count++;
+    }
+    while(parents->size != 0) {
+        pthread_mutex_lock(&mutex);
+        insertToMap(parents->data[parents->size - 1]->element,
+                    pthread_map[((arguments *) arg)->id].at(parents->data[parents->size - 1]->element));
+        pthread_mutex_unlock(&mutex);
+        /*EnterCriticalSection(&CriticalSection);
+        insertToMap(parents->data[parents->size - 1]->element,
+                    pthread_map[((arguments *) arg)->id].at(parents->data[parents->size - 1]->element));
+        LeaveCriticalSection(&CriticalSection);*/
+        pop(parents);
     }
     freeStack(&q);
-
-   /* auto end_time = std::chrono::high_resolution_clock::now();
-    auto time = end_time-start_time;
-    struct timeval tp;
-    gettimeofday(&tp, NULL);
-    long long mslong = (long long) tp.tv_sec * 1000L + tp.tv_usec / 1000; //get current timestamp in milliseconds*/
-    //cout  <<  endl<<"Thread "<< ((nodeptr)arg)->element <<" have time: "<<  " " << std::chrono::duration_cast<std::chrono::microseconds>(time).count() << " count: " << count << " end time: " << mslong << std::endl<< endl;
+    freeStack(&parents);
     pthread_mutex_lock(&mutex);
     countEndThreads++;
     pthread_mutex_unlock(&mutex);
-    //pthread_exit(NULL);
 }
 
+//Обход дерева в глубину
+void depthTreeTraversalWithThreads(nodeptr root)
+{
+    if (root != NULL) {
+        nodeptr leftnode = root->left;
+        nodeptr rightnode = root->right;
+        cout << root->element;
+        if(root->parent != NULL)
+           cout << ": parent = "  << root->parent->element;
+        cout << " child: ";
+        int s = 0;
+        if(leftnode != NULL) {
+            cout << leftnode->element << " ";
+        }
+        if(rightnode != NULL) {
+            cout << rightnode->element << " ";
+        }
+        cout << endl;
+        depthTreeTraversalWithThreads(leftnode);
+        depthTreeTraversalWithThreads(rightnode);
+    }
+}
 int main() {
+
+    int C = 100;
     pthread_t thread[8];
     int status[8];
     int status_addr[8];
@@ -376,6 +424,7 @@ int main() {
         printf("Mutex fail!\n");
         return 1;
     }
+    InitializeCriticalSection(&CriticalSection);
     summap = new map<int,int>();
     countWorkThreads = 0;
     countEndThreads = 0;
@@ -393,16 +442,29 @@ int main() {
     arg->root = bsroot;
 
     //Время вычисления для всего дерева
-    auto start_time = std::chrono::high_resolution_clock::now();
-    wideTreeTraversalWithThreads(arg);
-    auto end_time = std::chrono::high_resolution_clock::now();
-    auto time = end_time-start_time;
+    int sum1 = 0;
+    long long  int* samples = new long long  int[C];
+    for(int k = 0; k < C; k++) {
+        auto start_time = std::chrono::high_resolution_clock::now();
+        wideTreeTraversalWithThreads(arg);
+        auto end_time = std::chrono::high_resolution_clock::now();
+        auto time = end_time - start_time;
+        sum1+=std::chrono::duration_cast<std::chrono::microseconds>(time).count();
+        samples[k]  = std::chrono::duration_cast<std::chrono::microseconds>(time).count();
+        for (int i = 0; i < 8; i++)
+            pthread_map[i].clear();
+    }
     cout << endl;
-    cout << endl << "Sequence time for all tree: " << std::chrono::duration_cast<std::chrono::microseconds>(time).count() << endl;
-    for(int i = 0; i < pthread_map[0].size(); i++)
-        summap->insert(pair<int,int>(i,pthread_map[0].at(i)));
+    cout << endl << "Sequence time for all tree: " << sum1/C << endl;
+    long long  int dispersia = 0;
+    for(int k = 0; k < C; k++) {
+        samples[k] = pow((samples[k] - sum1 / C), 2);
+        dispersia += samples[k];
+    }
+    delete[](samples);
+    cout << endl << "Sequence dispersia: " << sqrt(dispersia/C) << endl;
     cout << summap->size() << endl;
-
+    cout << endl;
     test4threads(bsroot);
     test8threads(bsroot);
     test2threads(bsroot);
@@ -413,69 +475,86 @@ int main() {
     for(int i = 0; i < 8; i++)
         pthread_map[i].clear();
 
-    start_time = std::chrono::high_resolution_clock::now();
-    for (int i = 0; i < 4; i++) {
-        if (i == 0) {
-            arguments* arg = new arguments;
-            arg->id = i;
-            arg->root = bsroot->left->left;
-            if ((status[i] = pthread_create(&thread[i], NULL, &wideTreeTraversalWithThreads, (void *) arg)) != 0) {
-                printf("Can't create thread!\n");
+    samples = new long long  int[C];
+    int sum4 = 0;
+    for(int k = 0; k < C; k++) {
+        auto start_time = std::chrono::high_resolution_clock::now();
+        for (int i = 0; i < 4; i++) {
+            if (i == 0) {
+                arguments *arg = new arguments;
+                arg->id = i;
+                arg->root = bsroot->left->left;
+                if ((status[i] = pthread_create(&thread[i], NULL, &wideTreeTraversalWithThreads, (void *) arg)) != 0) {
+                    printf("Can't create thread!\n");
+                }
             }
-        }
-        else if (i == 1) {
-            arguments* arg = new arguments;
-            arg->id = i;
-            arg->root = bsroot->left->right;
-            if ((status[i] = pthread_create(&thread[i], NULL, &wideTreeTraversalWithThreads, (void *) arg)) != 0) {
-                printf("Can't create thread!\n");
+            else if (i == 1) {
+                arguments *arg = new arguments;
+                arg->id = i;
+                arg->root = bsroot->left->right;
+                if ((status[i] = pthread_create(&thread[i], NULL, &wideTreeTraversalWithThreads, (void *) arg)) != 0) {
+                    printf("Can't create thread!\n");
+                }
             }
-        }
-        else if (i == 2) {
-            arguments* arg = new arguments;
-            arg->id = i;
-            arg->root = bsroot->right->left;
-            if ((status[i] = pthread_create(&thread[i], NULL, &wideTreeTraversalWithThreads, (void *) arg)) != 0) {
-                printf("Can't create thread!\n");
+            else if (i == 2) {
+                arguments *arg = new arguments;
+                arg->id = i;
+                arg->root = bsroot->right->left;
+                if ((status[i] = pthread_create(&thread[i], NULL, &wideTreeTraversalWithThreads, (void *) arg)) != 0) {
+                    printf("Can't create thread!\n");
+                }
             }
-        }
-        else if (i == 3) {
-            arguments* arg = new arguments;
-            arg->id = i;
-            arg->root = bsroot->right->right;
-            if ((status[i] = pthread_create(&thread[i], NULL, &wideTreeTraversalWithThreads, (void *) arg)) != 0) {
-                printf("Can't create thread!\n");
+            else if (i == 3) {
+                arguments *arg = new arguments;
+                arg->id = i;
+                arg->root = bsroot->right->right;
+                if ((status[i] = pthread_create(&thread[i], NULL, &wideTreeTraversalWithThreads, (void *) arg)) != 0) {
+                    printf("Can't create thread!\n");
+                }
             }
+            countWorkThreads++;
+            pthread_detach(thread[i]);
         }
-        countWorkThreads++;
-        pthread_detach(thread[i]);
+        while (countEndThreads < countWorkThreads)
+            usleep(1);
+
+        int rootsum = bsroot->left->element + bsroot->right->element
+                      + bsroot->left->left->element
+                      + bsroot->left->right->element
+                      + bsroot->right->left->element
+                      + bsroot->right->right->element
+                      + pthread_map[0].at(bsroot->left->left->element)
+                      + pthread_map[1].at(bsroot->left->right->element)
+                      + pthread_map[2].at(bsroot->right->left->element)
+                      + pthread_map[3].at(bsroot->right->right->element);
+        summap->insert(pair<int, int>(bsroot->element, rootsum));
+        summap->insert(pair<int, int>(bsroot->left->element,
+                                      bsroot->left->left->element + bsroot->left->right->element +
+                                      pthread_map[0].at(bsroot->left->left->element)
+                                      + pthread_map[1].at(bsroot->left->right->element)));
+        summap->insert(pair<int, int>(bsroot->right->element,
+                                      bsroot->right->left->element + bsroot->right->right->element +
+                                      pthread_map[2].at(bsroot->right->left->element)
+                                      + pthread_map[3].at(bsroot->right->right->element)));
+
+
+        auto end_time = std::chrono::high_resolution_clock::now();
+
+        auto time = end_time - start_time;
+        sum4 += std::chrono::duration_cast<std::chrono::microseconds>(time).count();
+        samples[k] = std::chrono::duration_cast<std::chrono::microseconds>(time).count();
+        for(int i = 0; i < 8; i++)
+            pthread_map[i].clear();
     }
-    while(countEndThreads < countWorkThreads)
-        usleep(1);
-
-    int rootsum = bsroot->left->element + bsroot->right->element
-                  + bsroot->left->left->element
-                  + bsroot->left->right->element
-                  + bsroot->right->left->element
-                  + bsroot->right->right->element
-                  + pthread_map[0].at(bsroot->left->left->element)
-                  + pthread_map[1].at(bsroot->left->right->element)
-                  + pthread_map[2].at(bsroot->right->left->element)
-                  + pthread_map[3].at(bsroot->right->right->element);
-    summap->insert(pair<int,int> (bsroot->element,rootsum));
-    summap->insert(pair<int,int> (bsroot->left->element,bsroot->left->left->element + bsroot->left->right->element + pthread_map[0].at(bsroot->left->left->element)
-                                                        + pthread_map[1].at(bsroot->left->right->element)));
-    summap->insert(pair<int,int> (bsroot->right->element,bsroot->right->left->element + bsroot->right->right->element + pthread_map[2].at(bsroot->right->left->element)
-                                                         + pthread_map[3].at(bsroot->right->right->element)));
-
-
-
-    end_time = std::chrono::high_resolution_clock::now();
-
-    time = end_time-start_time;
-
-    cout  <<  endl <<"Parallel time - 4 threads: " << std::chrono::duration_cast<std::chrono::microseconds>(time).count() << endl;
-
+    cout  <<  endl <<"Parallel time - 4 threads: " << sum4/C << endl;
+    dispersia = 0;
+    for(int k = 0; k < C; k++) {
+        samples[k] = pow((samples[k] - sum4 / C), 2);
+        dispersia += samples[k];
+    }
+    delete[](samples);
+    cout << endl << "Parallel dispersia 4 threads: " << sqrt(dispersia/C) << endl;
+    cout << summap->size() << endl;
     //Время параллельного выисления для 8 потоков
     countEndThreads = 0;
     countWorkThreads = 0;
@@ -483,79 +562,83 @@ int main() {
     summap->clear();
     for(int i = 0; i < 8; i++)
         pthread_map[i].clear();
-    start_time = std::chrono::high_resolution_clock::now();
-    for (int i = 0; i < 8; i++) {
-        if (i == 0) {
-            arguments* arg = new arguments;
-            arg->id = i;
-            arg->root = bsroot->left->left->left;
-            if ((status[i] = pthread_create(&thread[i], NULL, &wideTreeTraversalWithThreads, (void *) arg)) != 0) {
-                printf("Can't create thread!\n");
-            }
-        }
-        else if (i == 1) {
-            arguments* arg = new arguments;
-            arg->id = i;
-            arg->root = bsroot->left->left->right;
-            if ((status[i] = pthread_create(&thread[i], NULL, &wideTreeTraversalWithThreads, (void *) arg)) != 0) {
-                printf("Can't create thread!\n");
-            }
-        }
-        else if (i == 2) {
-            arguments* arg = new arguments;
-            arg->id = i;
-            arg->root = bsroot->left->right->left;
-            if ((status[i] = pthread_create(&thread[i], NULL, &wideTreeTraversalWithThreads, (void *) arg)) != 0) {
-                printf("Can't create thread!\n");
-            }
-        }
-        else if (i == 3) {
-            arguments* arg = new arguments;
-            arg->id = i;
-            arg->root = bsroot->left->right->right;
-            if ((status[i] = pthread_create(&thread[i], NULL, &wideTreeTraversalWithThreads, (void *) arg)) != 0) {
-                printf("Can't create thread!\n");
-            }
-        }
-        else if (i == 4) {
-            arguments* arg = new arguments;
-            arg->id = i;
-            arg->root = bsroot->right->left->left;
-            if ((status[i] = pthread_create(&thread[i], NULL, &wideTreeTraversalWithThreads, (void *) arg)) != 0) {
-                printf("Can't create thread!\n");
-            }
-        }
-        else if (i == 5) {
-            arguments* arg = new arguments;
-            arg->id = i;
-            arg->root = bsroot->right->left->right;
-            if ((status[i] = pthread_create(&thread[i], NULL, &wideTreeTraversalWithThreads, (void *) arg)) != 0) {
-                printf("Can't create thread!\n");
-            }
-        }
-        else if (i == 6) {
-            arguments* arg = new arguments;
-            arg->id = i;
-            arg->root = bsroot->right->right->left;
-            if ((status[i] = pthread_create(&thread[i], NULL, &wideTreeTraversalWithThreads, (void *) arg)) != 0) {
-                printf("Can't create thread!\n");
-            }
-        }
-        else if (i == 7) {
-            arguments* arg = new arguments;
-            arg->id = i;
-            arg->root = bsroot->right->right->right;
-            if ((status[i] = pthread_create(&thread[i], NULL, &wideTreeTraversalWithThreads, (void *) arg)) != 0) {
-                printf("Can't create thread!\n");
-            }
-        }
-        countWorkThreads++;
-        pthread_detach(thread[i]);
-    }
-    while(countEndThreads < countWorkThreads)
-        usleep(1);
 
-    rootsum = bsroot->left->element + bsroot->right->element
+    int sum8 = 0;
+    samples = new long long  int[C];
+    for(int k = 0; k < C; k++) {
+        auto start_time = std::chrono::high_resolution_clock::now();
+        for (int i = 0; i < 8; i++) {
+            if (i == 0) {
+                arguments *arg = new arguments;
+                arg->id = i;
+                arg->root = bsroot->left->left->left;
+                if ((status[i] = pthread_create(&thread[i], NULL, &wideTreeTraversalWithThreads, (void *) arg)) != 0) {
+                    printf("Can't create thread!\n");
+                }
+            }
+            else if (i == 1) {
+                arguments *arg = new arguments;
+                arg->id = i;
+                arg->root = bsroot->left->left->right;
+                if ((status[i] = pthread_create(&thread[i], NULL, &wideTreeTraversalWithThreads, (void *) arg)) != 0) {
+                    printf("Can't create thread!\n");
+                }
+            }
+            else if (i == 2) {
+                arguments *arg = new arguments;
+                arg->id = i;
+                arg->root = bsroot->left->right->left;
+                if ((status[i] = pthread_create(&thread[i], NULL, &wideTreeTraversalWithThreads, (void *) arg)) != 0) {
+                    printf("Can't create thread!\n");
+                }
+            }
+            else if (i == 3) {
+                arguments *arg = new arguments;
+                arg->id = i;
+                arg->root = bsroot->left->right->right;
+                if ((status[i] = pthread_create(&thread[i], NULL, &wideTreeTraversalWithThreads, (void *) arg)) != 0) {
+                    printf("Can't create thread!\n");
+                }
+            }
+            else if (i == 4) {
+                arguments *arg = new arguments;
+                arg->id = i;
+                arg->root = bsroot->right->left->left;
+                if ((status[i] = pthread_create(&thread[i], NULL, &wideTreeTraversalWithThreads, (void *) arg)) != 0) {
+                    printf("Can't create thread!\n");
+                }
+            }
+            else if (i == 5) {
+                arguments *arg = new arguments;
+                arg->id = i;
+                arg->root = bsroot->right->left->right;
+                if ((status[i] = pthread_create(&thread[i], NULL, &wideTreeTraversalWithThreads, (void *) arg)) != 0) {
+                    printf("Can't create thread!\n");
+                }
+            }
+            else if (i == 6) {
+                arguments *arg = new arguments;
+                arg->id = i;
+                arg->root = bsroot->right->right->left;
+                if ((status[i] = pthread_create(&thread[i], NULL, &wideTreeTraversalWithThreads, (void *) arg)) != 0) {
+                    printf("Can't create thread!\n");
+                }
+            }
+            else if (i == 7) {
+                arguments *arg = new arguments;
+                arg->id = i;
+                arg->root = bsroot->right->right->right;
+                if ((status[i] = pthread_create(&thread[i], NULL, &wideTreeTraversalWithThreads, (void *) arg)) != 0) {
+                    printf("Can't create thread!\n");
+                }
+            }
+            countWorkThreads++;
+            pthread_detach(thread[i]);
+        }
+        while (countEndThreads < countWorkThreads)
+            usleep(1);
+
+        int rootsum = bsroot->left->element + bsroot->right->element
                   + bsroot->left->left->element + bsroot->left->right->element
                   + bsroot->right->left->element + bsroot->right->right->element
                   + bsroot->left->left->left->element
@@ -574,53 +657,67 @@ int main() {
                   + pthread_map[5].at(bsroot->right->left->right->element)
                   + pthread_map[6].at(bsroot->right->right->left->element)
                   + pthread_map[7].at(bsroot->right->right->right->element);
-    summap->insert(pair<int,int> (bsroot->element,rootsum));
-    summap->insert(pair<int,int> (bsroot->left->element,bsroot->left->left->element
-                                                        + bsroot->left->right->element
-                                                        + bsroot->left->left->left->element
-                                                        + bsroot->left->left->right->element
-                                                        + pthread_map[0].at(bsroot->left->left->left->element)
-                                                        + pthread_map[1].at(bsroot->left->left->right->element)
-                                                        + bsroot->left->right->left->element
-                                                        + bsroot->left->right->right->element
-                                                        + pthread_map[2].at(bsroot->left->right->left->element)
-                                                        + pthread_map[3].at(bsroot->left->right->right->element)));
-    summap->insert(pair<int,int> (bsroot->right->element,bsroot->right->left->element
-                                                         + bsroot->right->right->element
-                                                         + bsroot->right->left->left->element
-                                                         + bsroot->right->left->right->element
-                                                         + pthread_map[4].at(bsroot->right->left->left->element)
-                                                         + pthread_map[5].at(bsroot->right->left->right->element)
-                                                         + bsroot->right->right->left->element
-                                                         + bsroot->right->right->right->element
-                                                         + pthread_map[6].at(bsroot->right->right->left->element)
-                                                         + pthread_map[7].at(bsroot->right->right->right->element)));
-    summap->insert(pair<int,int> (bsroot->left->left->element,
-                                  bsroot->left->left->left->element
-                                  + bsroot->left->left->right->element
-                                  + pthread_map[0].at(bsroot->left->left->left->element)
-                                  + pthread_map[1].at(bsroot->left->left->right->element)));
-    summap->insert(pair<int,int> (bsroot->left->right->element,
-                                  bsroot->left->right->left->element
-                                  + bsroot->left->right->right->element
-                                  + pthread_map[2].at(bsroot->left->right->left->element)
-                                  + pthread_map[3].at(bsroot->left->right->right->element)));
-    summap->insert(pair<int,int> (bsroot->right->left->element,
-                                  bsroot->right->left->left->element
-                                  + bsroot->right->left->right->element
-                                  + pthread_map[4].at(bsroot->right->left->left->element)
-                                  + pthread_map[5].at(bsroot->right->left->right->element)));
-    summap->insert(pair<int,int> (bsroot->right->right->element,
-                                  bsroot->right->right->left->element
-                                  + bsroot->right->right->right->element
-                                  + pthread_map[6].at(bsroot->right->right->left->element)
-                                  + pthread_map[7].at(bsroot->right->right->right->element)));
+        summap->insert(pair<int, int>(bsroot->element, rootsum));
+        summap->insert(pair<int, int>(bsroot->left->element, bsroot->left->left->element
+                                                             + bsroot->left->right->element
+                                                             + bsroot->left->left->left->element
+                                                             + bsroot->left->left->right->element
+                                                             + pthread_map[0].at(bsroot->left->left->left->element)
+                                                             + pthread_map[1].at(bsroot->left->left->right->element)
+                                                             + bsroot->left->right->left->element
+                                                             + bsroot->left->right->right->element
+                                                             + pthread_map[2].at(bsroot->left->right->left->element)
+                                                             + pthread_map[3].at(bsroot->left->right->right->element)));
+        summap->insert(pair<int, int>(bsroot->right->element, bsroot->right->left->element
+                                                              + bsroot->right->right->element
+                                                              + bsroot->right->left->left->element
+                                                              + bsroot->right->left->right->element
+                                                              + pthread_map[4].at(bsroot->right->left->left->element)
+                                                              + pthread_map[5].at(bsroot->right->left->right->element)
+                                                              + bsroot->right->right->left->element
+                                                              + bsroot->right->right->right->element
+                                                              + pthread_map[6].at(bsroot->right->right->left->element)
+                                                              +
+                                                              pthread_map[7].at(bsroot->right->right->right->element)));
+        summap->insert(pair<int, int>(bsroot->left->left->element,
+                                      bsroot->left->left->left->element
+                                      + bsroot->left->left->right->element
+                                      + pthread_map[0].at(bsroot->left->left->left->element)
+                                      + pthread_map[1].at(bsroot->left->left->right->element)));
+        summap->insert(pair<int, int>(bsroot->left->right->element,
+                                      bsroot->left->right->left->element
+                                      + bsroot->left->right->right->element
+                                      + pthread_map[2].at(bsroot->left->right->left->element)
+                                      + pthread_map[3].at(bsroot->left->right->right->element)));
+        summap->insert(pair<int, int>(bsroot->right->left->element,
+                                      bsroot->right->left->left->element
+                                      + bsroot->right->left->right->element
+                                      + pthread_map[4].at(bsroot->right->left->left->element)
+                                      + pthread_map[5].at(bsroot->right->left->right->element)));
+        summap->insert(pair<int, int>(bsroot->right->right->element,
+                                      bsroot->right->right->left->element
+                                      + bsroot->right->right->right->element
+                                      + pthread_map[6].at(bsroot->right->right->left->element)
+                                      + pthread_map[7].at(bsroot->right->right->right->element)));
 
-    end_time = std::chrono::high_resolution_clock::now();
+        auto end_time = std::chrono::high_resolution_clock::now();
 
-    time = end_time-start_time;
+        auto time = end_time - start_time;
+        sum8 += std::chrono::duration_cast<std::chrono::microseconds>(time).count();
+        samples[k] = std::chrono::duration_cast<std::chrono::microseconds>(time).count();
+        for(int i = 0; i < 8; i++)
+            pthread_map[i].clear();
+    }
+    cout  <<  endl <<"Parallel time - 8 threads: " << sum8/C << endl;
+    dispersia = 0;
+    for(int k = 0; k < C; k++) {
+        samples[k] = pow((samples[k] - sum8 / C), 2);
+        dispersia += samples[k];
+    }
+    delete[](samples);
+    cout << endl << "Parallel dispersia 8 threads: " << sqrt(dispersia/C) << endl;
 
-    cout  <<  endl <<"Parallel time - 8 threads: " << std::chrono::duration_cast<std::chrono::microseconds>(time).count() << endl;
+    cout << summap->size() << endl;
 
     //Время параллельного выисления для 2 потоков
     countEndThreads = 0;
@@ -629,38 +726,53 @@ int main() {
         pthread_map[i].clear();
 
     summap->clear();
-    start_time = std::chrono::high_resolution_clock::now();
-    for (int i = 0; i < 2; i++) {
-        if (i == 0) {
-            arguments* arg = new arguments;
-            arg->id = i;
-            arg->root = bsroot->left;
-            if ((status[i] = pthread_create(&thread[i], NULL, &wideTreeTraversalWithThreads, (void *) arg)) != 0) {
-                printf("Can't create thread!\n");
+    int sum2 = 0;
+    samples = new long long  int[C];
+    for(int k = 0; k < C; k++) {
+        auto start_time = std::chrono::high_resolution_clock::now();
+        for (int i = 0; i < 2; i++) {
+            if (i == 0) {
+                arguments *arg = new arguments;
+                arg->id = i;
+                arg->root = bsroot->left;
+                if ((status[i] = pthread_create(&thread[i], NULL, &wideTreeTraversalWithThreads, (void *) arg)) != 0) {
+                    printf("Can't create thread!\n");
+                }
             }
-        }
-        else if (i == 1) {
-            arguments* arg = new arguments;
-            arg->id = i;
-            arg->root = bsroot->right;
-            if ((status[i] = pthread_create(&thread[i], NULL, &wideTreeTraversalWithThreads, (void *) arg)) != 0) {
-                printf("Can't create thread!\n");
+            else if (i == 1) {
+                arguments *arg = new arguments;
+                arg->id = i;
+                arg->root = bsroot->right;
+                if ((status[i] = pthread_create(&thread[i], NULL, &wideTreeTraversalWithThreads, (void *) arg)) != 0) {
+                    printf("Can't create thread!\n");
+                }
             }
+            countWorkThreads++;
+            pthread_detach(thread[i]);
         }
-        countWorkThreads++;
-        pthread_detach(thread[i]);
-    }
-    while(countEndThreads < countWorkThreads)
-        usleep(1);
-    rootsum = bsroot->left->element + bsroot->right->element + pthread_map[0].at(bsroot->left->element)
+        while (countEndThreads < countWorkThreads)
+            usleep(1);
+        int rootsum = bsroot->left->element + bsroot->right->element + pthread_map[0].at(bsroot->left->element)
                   + pthread_map[1].at(bsroot->right->element);
-    summap->insert(pair<int,int> (bsroot->element,rootsum));
-    end_time = std::chrono::high_resolution_clock::now();
+        summap->insert(pair<int, int>(bsroot->element, rootsum));
+        auto end_time = std::chrono::high_resolution_clock::now();
 
-    time = end_time-start_time;
+        auto time = end_time - start_time;
+        sum2 += std::chrono::duration_cast<std::chrono::microseconds>(time).count();
+        samples[k] = std::chrono::duration_cast<std::chrono::microseconds>(time).count();
+        for(int i = 0; i < 8; i++)
+            pthread_map[i].clear();
+    }
+    cout  <<  endl <<"Parallel time - 2 threads: " << sum2/C << endl;
+    dispersia = 0;
+    for(int k = 0; k < C; k++) {
+        samples[k] = pow((samples[k] - sum2 / C), 2);
+        dispersia += samples[k];
+    }
+    delete[](samples);
+    cout << endl << "Parallel dispersia 2 threads: " << sqrt(dispersia/C) << endl;
 
-    cout  <<  endl <<"Parallel time - 2 threads: " << std::chrono::duration_cast<std::chrono::microseconds>(time).count() << endl;
-
+    cout << summap->size() << endl;
     //Освобождаем ресурсы
     pthread_mutex_destroy(&mutex);
     delete(summap);

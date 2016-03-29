@@ -43,10 +43,12 @@ void push(Stack *s, nodeptr item) {
 
 nodeptr pop(Stack *s) {
     if (s->size == 0) {
-        exit(7);
+        return NULL;
     }
-    s->size--;
-    return s->data[s->size];
+    else {
+        s->size--;
+        return s->data[s->size];
+    }
 }
 
 nodeptr peek(Stack *s) {
