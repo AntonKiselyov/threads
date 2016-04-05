@@ -80,7 +80,7 @@ void auto_config(nodeptr bsroot, int level,int num, Stack* nodestack)
 }
 
 int main(void) {
-    int C = 100;
+    int C = 1000;
     nodeptr bsroot = NULL;
     nodeptr bsparent = NULL;
     bstree bstree;
@@ -102,7 +102,7 @@ int main(void) {
     long long  int* samples = new long long  int[C];
     for (int k = 0; k < C; k++) {
         auto start_time = std::chrono::high_resolution_clock::now();
-#pragma omp parallel num_threads(8)
+#pragma omp parallel num_threads(1)
         {
 #pragma omp for
             for (int n = 0; n < num; ++n)
@@ -207,7 +207,7 @@ int main(void) {
     samples = new long long  int[C];
     for (int k = 0; k < C; k++) {
         auto start_time = std::chrono::high_resolution_clock::now();
-#pragma omp parallel num_threads(4)
+#pragma omp parallel num_threads(1)
         {
 #pragma omp for
             for (int n = 0; n < num; ++n)
@@ -266,7 +266,7 @@ int main(void) {
     samples = new long long  int[C];
     for (int k = 0; k < C; k++) {
         auto start_time = std::chrono::high_resolution_clock::now();
-#pragma omp parallel num_threads(2)
+#pragma omp parallel num_threads(1)
         {
 #pragma omp for
             for (int n = 0; n < num; ++n)

@@ -465,7 +465,7 @@ void depthTreeTraversalWithThreads(nodeptr root)
 }
 int main() {
 
-    int C = 100;
+    int C = 1000;
     pthread_t thread[8];
     int status[8];
     int status_addr[8];
